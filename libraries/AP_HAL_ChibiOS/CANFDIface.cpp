@@ -167,9 +167,9 @@ static inline void handleCANInterrupt(uint8_t phys_index, uint8_t line_index)
 uint32_t CANIface::FDCANMessageRAMOffset_ = 0;
 
 CANIface::CANIface(uint8_t index) :
-    self_index_(index),
     rx_bytebuffer_((uint8_t*)rx_buffer, sizeof(rx_buffer)),
-    rx_queue_(&rx_bytebuffer_)
+    rx_queue_(&rx_bytebuffer_),
+    self_index_(index)
 {
     if (index >= HAL_NUM_CAN_IFACES) {
          AP_HAL::panic("Bad CANIface index.");
@@ -323,6 +323,7 @@ bool CANIface::computeTimings(const uint32_t target_bitrate, Timings& out_timing
 
 /*
   table driven timings for CANFD
+  These timings are from https://www.kvaser.com/support/calculators/can-fd-bit-timing-calculator
  */
 bool CANIface::computeFDTimings(const uint32_t target_bitrate, Timings& out_timings) const
 {
@@ -334,11 +335,11 @@ bool CANIface::computeFDTimings(const uint32_t target_bitrate, Timings& out_timi
         uint8_t sjw;
         uint8_t sample_point_pct;
     } CANFD_timings[] {
-        { 1, 5, 15, 6, 6, 75},
-        { 2, 3, 15, 6, 6, 75},
-        { 4, 2, 15, 6, 6, 75},
-        { 5, 2, 12, 5, 5, 75},
-        { 8, 2,  8, 3, 3, 80},
+        { 1, 4, 14, 5, 5, 75},
+        { 2, 2, 14, 5, 5, 75},
+        { 4, 1, 14, 5, 5, 75},
+        { 5, 1, 11, 4, 4, 75},
+        { 8, 1,  6, 3, 3, 70},
     };
     for (const auto &t : CANFD_timings) {
         if (t.bitrate_mbaud*1000U*1000U == target_bitrate) {
@@ -378,6 +379,17 @@ int16_t CANIface::send(const AP_HAL::CANFrame& frame, uint64_t tx_deadline,
 
         if ((can_->TXFQS & FDCAN_TXFQS_TFQF) != 0) {
             stats.tx_overflow++;
+            if (stats.tx_success == 0) {
+                /*
+                  if we have never successfully transmitted a frame
+                  then we may be operating with just MAVCAN or UDP
+                  MCAST. Consider the frame sent if the send
+                  succeeds. This allows for UDP MCAST and MAVCAN to
+                  operate fully when the CAN bus has no cable plugged
+                  in
+                 */
+                return AP_HAL::CANIface::send(frame, tx_deadline, flags);
+            }
             return 0;    //we don't have free space
         }
         index = ((can_->TXFQS & FDCAN_TXFQS_TFQPI) >> FDCAN_TXFQS_TFQPI_Pos);
@@ -719,7 +731,11 @@ bool CANIface::init(const uint32_t bitrate, const uint32_t fdbitrate, const Oper
         can_->DBTP = (((fdtimings.bs1-1) << FDCAN_DBTP_DTSEG1_Pos) |
                       ((fdtimings.bs2-1) << FDCAN_DBTP_DTSEG2_Pos)  |
                       ((fdtimings.prescaler-1) << FDCAN_DBTP_DBRP_Pos) |
-                      ((fdtimings.sjw-1) << FDCAN_DBTP_DSJW_Pos));
+                      ((fdtimings.sjw-1) << FDCAN_DBTP_DSJW_Pos)) |
+            FDCAN_DBTP_TDC;
+        // use a transmitter delay compensation offset of 10, suitable
+        // for MCP2557FD transceiver with delay of 120ns
+        can_->TDCR = 10<<FDCAN_TDCR_TDCO_Pos;
     }
 
     //RX Config
@@ -1140,10 +1156,10 @@ void CANIface::get_stats(ExpandingString &str)
                STM32_FDCANCLK/1000000UL,
                _bitrate, unsigned(timings.prescaler),
                unsigned(timings.sjw), unsigned(timings.bs1),
-               unsigned(timings.bs2), timings.sample_point_permill/10.0f,
+               unsigned(timings.bs2), timings.sample_point_permill*0.1f,
                _fdbitrate, unsigned(fdtimings.prescaler),
                unsigned(fdtimings.sjw), unsigned(fdtimings.bs1),
-               unsigned(fdtimings.bs2), fdtimings.sample_point_permill/10.0f,
+               unsigned(fdtimings.bs2), fdtimings.sample_point_permill*0.1f,
                stats.tx_requests,
                stats.tx_rejected,
                stats.tx_overflow,

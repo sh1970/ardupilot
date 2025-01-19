@@ -3,7 +3,7 @@
 #define AP_PARAM_VEHICLE_NAME blimp
 
 #include <AP_Common/AP_Common.h>
-#include "RC_Channel.h"
+#include "RC_Channel_Blimp.h"
 #include <SRV_Channel/SRV_Channel.h>
 
 // Global parameter class.
@@ -134,7 +134,7 @@ public:
         k_param_sysid_my_gcs,
         k_param_telem_delay,
         k_param_gcs2,
-        k_param_serial_manager,
+        k_param_serial_manager_old,
         k_param_gcs3,
         k_param_gcs_pid_mask,
         k_param_gcs4,

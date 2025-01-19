@@ -5,8 +5,9 @@
 #include <AP_Param/AP_Param.h>
 #include <AP_RTC/AP_RTC.h>
 #include <AC_PID/AC_PI.h>
+#include <AP_Radio/AP_Radio_config.h>
 
-#if HAL_RCINPUT_WITH_AP_RADIO
+#if AP_RADIO_ENABLED
 #include <AP_Radio/AP_Radio.h>
 #endif
 
@@ -157,7 +158,8 @@ public:
         WRITE_PROTECT_FLASH = (1<<5),
         WRITE_PROTECT_BOOTLOADER = (1<<6),
         SKIP_BOARD_VALIDATION = (1<<7),
-        DISABLE_ARMING_GPIO = (1<<8)
+        DISABLE_ARMING_GPIO = (1<<8),
+        IO_SAFETY_PINS_AS_PROFILED = (1<<9),
     };
 
     //return true if arming gpio output is disabled
@@ -199,6 +201,12 @@ public:
         return _singleton?(_singleton->_options & ALLOW_SET_INTERNAL_PARM)!=0:false;
     }
     
+#if HAL_WITH_IO_MCU
+    static bool use_safety_as_led(void) {
+        return _singleton?(_singleton->_options & IO_SAFETY_PINS_AS_PROFILED)!=0:false;
+    }
+#endif
+
     // handle press of safety button. Return true if safety state
     // should be toggled
     bool safety_button_handle_pressed(uint8_t press_count);
@@ -220,6 +228,11 @@ public:
     // return number of kb of mission storage to use on microSD
     static uint16_t get_sdcard_mission_kb(void) {
         return _singleton? _singleton->sdcard_storage.mission_kb.get() : 0;
+    }
+
+    // return number of kb of fence storage to use on microSD
+    static uint16_t get_sdcard_fence_kb(void) {
+        return _singleton? _singleton->sdcard_storage.fence_kb.get() : 0;
     }
 #endif
 
@@ -244,6 +257,7 @@ private:
 #if AP_SDCARD_STORAGE_ENABLED
     struct {
         AP_Int16 mission_kb;
+        AP_Int16 fence_kb;
     } sdcard_storage;
 #endif
 
@@ -286,7 +300,7 @@ private:
     } heater;
 #endif
 
-#if HAL_RCINPUT_WITH_AP_RADIO
+#if AP_RADIO_ENABLED
     // direct attached radio
     AP_Radio _radio;
 #endif

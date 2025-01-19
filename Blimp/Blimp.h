@@ -60,9 +60,9 @@
 #include "Fins.h"
 #include "Loiter.h"
 
-#include "RC_Channel.h"         // RC Channel Library
+#include "RC_Channel_Blimp.h"         // RC Channel Library
 
-#include "GCS_Mavlink.h"
+#include "GCS_MAVLink_Blimp.h"
 #include "GCS_Blimp.h"
 #include "AP_Arming.h"
 
@@ -113,10 +113,6 @@ private:
     RC_Channel *channel_up;
     RC_Channel *channel_yaw;
 
-#if HAL_LOGGING_ENABLED
-    AP_Logger logger;
-#endif
-
     // flight modes convenience array
     AP_Int8 *flight_modes;
     const uint8_t num_flight_modes = 6;
@@ -151,7 +147,7 @@ private:
             uint8_t logging_started         : 1; // 4       // true if logging has started
             uint8_t land_complete           : 1; // 5       // true if we have detected a landing
             uint8_t new_radio_frame         : 1; // 6       // Set true if we have new PWM data to act on from the Radio
-            uint8_t rc_receiver_present     : 1; // 7       // true if we have an rc receiver present (i.e. if we've ever received an update
+            uint8_t rc_receiver_present_unused     : 1; // 7       // UNUSED
             uint8_t compass_mot             : 1; // 8       // true if we are currently performing compassmot calibration
             uint8_t motor_test              : 1; // 9       // true if we are currently performing the motors test
             uint8_t initialised             : 1; // 10      // true once the init_ardupilot function has completed.  Extended status to GCS is not sent until this completes
@@ -172,7 +168,6 @@ private:
     // There are multiple states defined such as STABILIZE, ACRO,
     Mode::Number control_mode;
     ModeReason control_mode_reason = ModeReason::UNKNOWN;
-    Mode::Number prev_control_mode;
 
     RCMapper rcmap;
 
@@ -314,9 +309,8 @@ private:
     // commands.cpp
     void update_home_from_EKF();
     void set_home_to_current_location_inflight();
-    bool set_home_to_current_location(bool lock) WARN_IF_UNUSED;
-    bool set_home(const Location& loc, bool lock) WARN_IF_UNUSED;
-    bool far_from_EKF_origin(const Location& loc);
+    bool set_home_to_current_location(bool lock) override WARN_IF_UNUSED;
+    bool set_home(const Location& loc, bool lock) override WARN_IF_UNUSED;
 
     // ekf_check.cpp
     void ekf_check();
@@ -354,8 +348,14 @@ private:
     void landinggear_update();
 
 #if HAL_LOGGING_ENABLED
+    // methods for AP_Vehicle:
+    const AP_Int32 &get_log_bitmask() override { return g.log_bitmask; }
+    const struct LogStructure *get_log_structures() const override {
+        return log_structure;
+    }
+    uint8_t get_num_log_structures() const override;
+
     // Log.cpp
-    void Log_Write_Performance();
     void Log_Write_Attitude();
     void Log_Write_PIDs();
     void Log_Write_EKF_POS();
@@ -365,11 +365,9 @@ private:
     void Log_Write_Data(LogDataID id, uint16_t value);
     void Log_Write_Data(LogDataID id, float value);
     void Log_Write_Parameter_Tuning(uint8_t param, float tuning_val, float tune_min, float tune_max);
-    void Log_Write_GuidedTarget(uint8_t target_type, const Vector3f& pos_target, const Vector3f& vel_target);
 
 
     void Log_Write_Vehicle_Startup_Messages();
-    void log_init(void);
     void Write_FINI(float right, float front, float down, float yaw);
     void Write_FINO(float *amp, float *off);
 #endif

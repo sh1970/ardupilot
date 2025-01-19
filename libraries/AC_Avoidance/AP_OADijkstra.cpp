@@ -13,6 +13,10 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "AC_Avoidance_config.h"
+
+#if AP_OAPATHPLANNER_DIJKSTRA_ENABLED
+
 #include "AP_OADijkstra.h"
 #include "AP_OAPathPlanner.h"
 
@@ -30,12 +34,12 @@
 
 /// Constructor
 AP_OADijkstra::AP_OADijkstra(AP_Int16 &options) :
-        _options(options),
         _inclusion_polygon_pts(OA_DIJKSTRA_EXPANDING_ARRAY_ELEMENTS_PER_CHUNK),
         _exclusion_polygon_pts(OA_DIJKSTRA_EXPANDING_ARRAY_ELEMENTS_PER_CHUNK),
         _exclusion_circle_pts(OA_DIJKSTRA_EXPANDING_ARRAY_ELEMENTS_PER_CHUNK),
         _short_path_data(OA_DIJKSTRA_EXPANDING_ARRAY_ELEMENTS_PER_CHUNK),
-        _path(OA_DIJKSTRA_EXPANDING_ARRAY_ELEMENTS_PER_CHUNK)
+        _path(OA_DIJKSTRA_EXPANDING_ARRAY_ELEMENTS_PER_CHUNK),
+        _options(options)
 {
 }
 
@@ -1011,3 +1015,5 @@ bool AP_OADijkstra::convert_node_to_point(const AP_OAVisGraph::OAItemID& id, Vec
 }
 #endif // AP_FENCE_ENABLED
 
+
+#endif  // AP_OAPATHPLANNER_DIJKSTRA_ENABLED

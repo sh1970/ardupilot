@@ -46,9 +46,9 @@
 #include "config.h"
 #include "defines.h"
 
-#include "RC_Channel.h"
+#include "RC_Channel_Tracker.h"
 #include "Parameters.h"
-#include "GCS_Mavlink.h"
+#include "GCS_MAVLink_Tracker.h"
 #include "GCS_Tracker.h"
 
 #include "AP_Arming.h"
@@ -64,8 +64,6 @@ public:
     friend class ModeGuided;
     friend class Mode;
 
-    Tracker(void);
-
     void arm_servos();
     void disarm_servos();
 
@@ -73,10 +71,6 @@ private:
     Parameters g;
 
     uint32_t start_time_ms = 0;
-
-#if HAL_LOGGING_ENABLED
-    AP_Logger logger;
-#endif
 
     /**
        antenna control channels
@@ -160,12 +154,20 @@ private:
     // GCS_Mavlink.cpp
     void send_nav_controller_output(mavlink_channel_t chan);
 
+#if HAL_LOGGING_ENABLED
+    // methods for AP_Vehicle:
+    const AP_Int32 &get_log_bitmask() override { return g.log_bitmask; }
+    const struct LogStructure *get_log_structures() const override {
+        return log_structure;
+    }
+    uint8_t get_num_log_structures() const override;
+
     // Log.cpp
     void Log_Write_Attitude();
     void Log_Write_Vehicle_Baro(float pressure, float altitude);
     void Log_Write_Vehicle_Pos(int32_t lat,int32_t lng,int32_t alt, const Vector3f& vel);
     void Log_Write_Vehicle_Startup_Messages();
-    void log_init(void);
+#endif
 
     // Parameters.cpp
     void load_parameters(void) override;
@@ -195,7 +197,8 @@ private:
     void init_ardupilot() override;
     bool get_home_eeprom(Location &loc) const;
     bool set_home_eeprom(const Location &temp) WARN_IF_UNUSED;
-    bool set_home(const Location &temp) WARN_IF_UNUSED;
+    bool set_home_to_current_location(bool lock) override WARN_IF_UNUSED;
+    bool set_home(const Location &temp, bool lock) override WARN_IF_UNUSED;
     void prepare_servos();
     void set_mode(Mode &newmode, ModeReason reason);
     bool set_mode(uint8_t new_mode, ModeReason reason) override;
