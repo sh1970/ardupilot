@@ -384,7 +384,7 @@ void GCS_MAVLINK_Copter::packetReceived(const mavlink_status_t &status,
                                         const mavlink_message_t &msg)
 {
     // we handle these messages here to avoid them being blocked by mavlink routing code
-#if HAL_ADSB_ENABLED
+#if AP_ADSB_AVOIDANCE_ENABLED
     if (copter.g2.dev_options.get() & DevOptionADSBMAVLink) {
         // optional handling of GLOBAL_POSITION_INT as a MAVLink based avoidance source
         copter.avoidance_adsb.handle_msg(msg);
@@ -609,7 +609,7 @@ MAV_RESULT GCS_MAVLINK_Copter::handle_command_mount(const mavlink_command_int_t 
             !copter.camera_mount.has_pan_control()) {
             // Per the handler in AP_Mount, DO_MOUNT_CONTROL yaw angle is in body frame, which is
             // equivalent to an offset to the current yaw demand.
-            copter.flightmode->auto_yaw.set_yaw_angle_offset(packet.param3);
+            copter.flightmode->auto_yaw.set_yaw_angle_offset_deg(packet.param3);
         }
         break;
     default:
@@ -882,8 +882,8 @@ void GCS_MAVLINK_Copter::handle_mount_message(const mavlink_message_t &msg)
             !copter.camera_mount.has_pan_control()) {
             // Per the handler in AP_Mount, MOUNT_CONTROL yaw angle is in body frame, which is
             // equivalent to an offset to the current yaw demand.
-            const float yaw_offset_d = mavlink_msg_mount_control_get_input_c(&msg) * 0.01f;
-            copter.flightmode->auto_yaw.set_yaw_angle_offset(yaw_offset_d);
+            const float yaw_offset_deg = mavlink_msg_mount_control_get_input_c(&msg) * 0.01f;
+            copter.flightmode->auto_yaw.set_yaw_angle_offset_deg(yaw_offset_deg);
             break;
         }
     }
@@ -1461,7 +1461,7 @@ uint8_t GCS_MAVLINK_Copter::send_available_mode(uint8_t index) const
 #if MODE_THROW_ENABLED
         &copter.mode_throw,
 #endif
-#if HAL_ADSB_ENABLED
+#if AP_ADSB_AVOIDANCE_ENABLED
         &copter.mode_avoid_adsb,
 #endif
 #if MODE_GUIDED_NOGPS_ENABLED
