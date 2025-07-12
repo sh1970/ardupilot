@@ -78,6 +78,7 @@
 #include <AP_OpticalFlow/AP_OpticalFlow.h>     // Optical Flow library
 #include <AP_Parachute/AP_Parachute.h>
 #include <AP_ADSB/AP_ADSB.h>
+#include <AP_Avoidance/AP_Avoidance_config.h>      // "ADSB" avoidance library
 #include <AP_ICEngine/AP_ICEngine.h>
 #include <AP_Landing/AP_Landing.h>
 #include <AP_LandingGear/AP_LandingGear.h>     // Landing Gear library
@@ -117,9 +118,9 @@
 
 #include "RC_Channel_Plane.h"     // RC Channel Library
 #include "Parameters.h"
-#if HAL_ADSB_ENABLED
+#if AP_ADSB_AVOIDANCE_ENABLED
 #include "avoidance_adsb.h"
-#endif
+#endif  // AP_ADSB_AVOIDANCE_ENABLED
 #include "AP_Arming_Plane.h"
 #include "pullup.h"
 #include "systemid.h"
@@ -436,6 +437,7 @@ private:
     // The amount current ground speed is below min ground speed.  Centimeters per second
     int32_t groundspeed_undershoot;
     bool groundspeed_undershoot_is_valid;
+    float last_groundspeed_undershoot_offset;
 
     // speed scaler for control surfaces, updated at 10Hz
     float surface_speed_scaler = 1.0;
@@ -703,10 +705,12 @@ private:
             FUNCTOR_BIND_MEMBER(&Plane::update_flight_stage, void)};
 #if HAL_ADSB_ENABLED
     AP_ADSB adsb;
+#endif  // HAL_ADSB_ENABLED
 
+#if AP_ADSB_AVOIDANCE_ENABLED
     // avoidance of adsb enabled vehicles (normally manned vehicles)
     AP_Avoidance_Plane avoidance_adsb{adsb};
-#endif
+#endif  // AP_ADSB_AVOIDANCE_ENABLED
 
     // Outback Challenge Failsafe Support
 #if AP_ADVANCEDFAILSAFE_ENABLED
@@ -835,12 +839,6 @@ private:
 
     static const AP_Scheduler::Task scheduler_tasks[];
     static const AP_Param::Info var_info[];
-
-    // time that rudder arming has been running
-    uint32_t rudder_arm_timer;
-
-    // have we seen neutral rudder since arming with rudder?
-    bool seen_neutral_rudder;
 
 #if HAL_QUADPLANE_ENABLED
     // support for quadcopter-plane
@@ -1016,7 +1014,7 @@ private:
 
     bool is_land_command(uint16_t cmd) const;
 
-    bool do_change_speed(uint8_t speedtype, float speed_target_ms, float rhtottle_pct);
+    bool do_change_speed(SPEED_TYPE speedtype, float speed_target_ms, float rhtottle_pct);
     /*
       return true if in a specific AUTO mission command
     */
@@ -1121,7 +1119,6 @@ private:
     void init_rc_in();
     void init_rc_out_main();
     void init_rc_out_aux();
-    void rudder_arm_disarm_check();
     void read_radio();
     int16_t rudder_input(void);
     void control_failsafe();
@@ -1216,6 +1213,7 @@ private:
     bool have_reverse_thrust(void) const;
     float get_throttle_input(bool no_deadzone=false) const;
     float get_adjusted_throttle_input(bool no_deadzone=false) const;
+    bool reverse_thrust_enabled(UseReverseThrust use_reverse_thrust_option) const;
 
 #if AP_SCRIPTING_ENABLED
     // support for NAV_SCRIPT_TIME mission command

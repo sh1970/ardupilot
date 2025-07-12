@@ -1,5 +1,7 @@
 # encoding: utf-8
 
+# flake8: noqa
+
 from collections import OrderedDict
 import re
 import sys, os
@@ -101,7 +103,7 @@ class Board:
                 if "#define AP_DDS_ENABLED 1" in file.read():
                     # Enable DDS if the hwdef file has it enabled
                     cfg.env.OPTIONS['enable_DDS'] = True
-                elif cfg.env.OPTIONS['enable_DDS']:
+                elif cfg.env.OPTIONS.get('enable_DDS', False):
                     # Add the define enabled if the hwdef file does not have it and the commandline option is set
                     env.DEFINES.update(
                         AP_DDS_ENABLED=1,
@@ -189,10 +191,12 @@ class Board:
         for opt in build_options.BUILD_OPTIONS:
             enable_option = opt.config_option().replace("-","_")
             disable_option = "disable_" + enable_option[len("enable-"):]
-            if getattr(cfg.options, enable_option, False):
+            lower_disable_option = disable_option.lower().replace("_", "-")
+            lower_enable_option = enable_option.lower().replace("_", "-")
+            if getattr(cfg.options, enable_option, False) or getattr(cfg.options, lower_enable_option, False):
                 env.CXXFLAGS += ['-D%s=1' % opt.define]
                 cfg.msg("Enabled %s" % opt.label, 'yes', color='GREEN')
-            elif getattr(cfg.options, disable_option, False):
+            elif getattr(cfg.options, disable_option, False) or getattr(cfg.options, lower_disable_option, False):
                 env.CXXFLAGS += ['-D%s=0' % opt.define]
                 cfg.msg("Enabled %s" % opt.label, 'no', color='YELLOW')
 
@@ -638,7 +642,8 @@ def add_dynamic_boards_from_hwdef_dir(base_type, hwdef_dir):
         if d in _board_classes.keys():
             continue
         hwdef = os.path.join(dirname, d, 'hwdef.dat')
-        if os.path.exists(hwdef):
+        hwdef_bl = os.path.join(dirname, d, 'hwdef-bl.dat')
+        if os.path.exists(hwdef) or os.path.exists(hwdef_bl):
             newclass = type(d, (base_type,), {'name': d})
 
 def add_dynamic_boards_esp32():
@@ -1087,7 +1092,19 @@ class sitl_periph_battery_tag(sitl_periph):
             AP_PERIPH_RTC_ENABLED = 1,
             AP_PERIPH_RTC_GLOBALTIME_ENABLED = 1,
         )
-        
+
+class sitl_periph_can_to_serial(sitl_periph):
+    def configure_env(self, cfg, env):
+        cfg.env.AP_PERIPH = 1
+        super().configure_env(cfg, env)
+        env.DEFINES.update(
+            HAL_BUILD_AP_PERIPH = 1,
+            PERIPH_FW = 1,
+            CAN_APP_NODE_NAME = '"org.ardupilot.serial_passthrough"',
+            APJ_BOARD_ID = 101,
+
+        )
+
 class esp32(Board):
     abstract = True
     toolchain = 'xtensa-esp32-elf'

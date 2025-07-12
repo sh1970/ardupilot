@@ -62,6 +62,16 @@ int32_t AC_WPNav_OA::get_wp_bearing_to_destination_cd() const
     return get_bearing_cd(_pos_control.get_pos_estimate_NEU_cm().xy().tofloat(), _destination_oabak_neu_cm.xy());
 }
 
+/// get_wp_bearing_to_destination_cd - get bearing to next waypoint in centi-degrees
+float AC_WPNav_OA::get_wp_bearing_to_destination_rad() const
+{
+    if (_oa_state == AP_OAPathPlanner::OA_NOT_REQUIRED) {
+        return AC_WPNav::get_wp_bearing_to_destination_rad();
+    }
+
+    return get_bearing_rad(_pos_control.get_pos_estimate_NEU_cm().xy().tofloat(), _destination_oabak_neu_cm.xy());
+}
+
 /// true when we have come within RADIUS cm of the waypoint
 bool AC_WPNav_OA::reached_wp_destination() const
 {
@@ -212,7 +222,9 @@ bool AC_WPNav_OA::update_wpnav()
                     INTERNAL_ERROR(AP_InternalError::error_t::flow_of_control);
                     return false;
                 }
-                Vector3p dest_NEU{dest_NE.x, dest_NE.y, (float)target_alt_loc.alt};
+                int32_t target_alt_loc_alt_cm = 0;
+                UNUSED_RESULT(target_alt_loc.get_alt_cm(target_alt_loc.get_alt_frame(), target_alt_loc_alt_cm));
+                Vector3p dest_NEU{dest_NE.x, dest_NE.y, (float)target_alt_loc_alt_cm};
 
                 // pass the desired position directly to the position controller
                 _pos_control.input_pos_NEU_cm(dest_NEU, terr_offset, 1000.0);

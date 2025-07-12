@@ -712,10 +712,12 @@ bool QuadPlane::setup(void)
     }
 
     switch ((AP_Motors::motor_frame_class)frame_class) {
+#if AP_MOTORS_TRI_ENABLED
     case AP_Motors::MOTOR_FRAME_TRI:
         motors = NEW_NOTHROW AP_MotorsTri(rc_speed);
         motors_var_info = AP_MotorsTri::var_info;
         break;
+#endif  // AP_MOTORS_TRI_ENABLED
     case AP_Motors::MOTOR_FRAME_TAILSITTER:
         // this is a duo-motor tailsitter
         tailsitter.tailsitter_motors = NEW_NOTHROW AP_MotorsTailsitter(rc_speed);
@@ -907,7 +909,7 @@ void QuadPlane::multicopter_attitude_rate_update(float yaw_rate_cds)
 
             if (!(tailsitter.input_type & Tailsitter::input::TAILSITTER_INPUT_PLANE)) {
                 // In multicopter input mode, the roll and yaw stick axes are independent of pitch
-                attitude_control->input_euler_rate_yaw_euler_angle_pitch_bf_roll(false,
+                attitude_control->input_euler_rate_yaw_euler_angle_pitch_bf_roll_cd(false,
                                                                                 plane.nav_roll_cd,
                                                                                 plane.nav_pitch_cd,
                                                                                 yaw_rate_cds);
@@ -937,7 +939,7 @@ void QuadPlane::multicopter_attitude_rate_update(float yaw_rate_cds)
                 float p_yaw_rate = plane.nav_roll_cd / y2r_scale;
                 float p_roll_angle = -y2r_scale * yaw_rate_cds;
 
-                attitude_control->input_euler_rate_yaw_euler_angle_pitch_bf_roll(true,
+                attitude_control->input_euler_rate_yaw_euler_angle_pitch_bf_roll_cd(true,
                                                                                 p_roll_angle,
                                                                                 plane.nav_pitch_cd,
                                                                                 p_yaw_rate);
@@ -1423,7 +1425,7 @@ float QuadPlane::assist_climb_rate_cms(void) const
 /*
   calculate desired yaw rate for assistance
  */
-float QuadPlane::desired_auto_yaw_rate_cds(void) const
+float QuadPlane::desired_auto_yaw_rate_cds(bool body_frame) const
 {
     float aspeed;
     if (!ahrs.airspeed_estimate(aspeed) || aspeed < plane.aparm.airspeed_min) {
@@ -1432,8 +1434,10 @@ float QuadPlane::desired_auto_yaw_rate_cds(void) const
     if (aspeed < 1) {
         aspeed = 1;
     }
-    float yaw_rate = degrees(GRAVITY_MSS * tanf(cd_to_rad(plane.nav_roll_cd))/aspeed) * 100;
-    return yaw_rate;
+    if (body_frame) {
+        return degrees(GRAVITY_MSS * sinf(cd_to_rad(plane.nav_roll_cd))/aspeed) * 100;
+    }
+    return degrees(GRAVITY_MSS * tanf(cd_to_rad(plane.nav_roll_cd))/aspeed) * 100;
 }
 
 /*
@@ -1562,14 +1566,9 @@ void SLT_Transition::update()
         quadplane.hold_hover(climb_rate_cms);
 
         if (!quadplane.tiltrotor.is_vectored()) {
-            // set desired yaw to current yaw in both desired angle
-            // and rate request. This reduces wing twist in transition
-            // due to multicopter yaw demands. This is disabled when
-            // using vectored yaw for tilt-rotors as the yaw control
-            // is needed to maintain good control in forward
-            // transitions
+            // set desired yaw rate to a coordinated turn
             quadplane.attitude_control->reset_yaw_target_and_rate();
-            quadplane.attitude_control->rate_bf_yaw_target(0.0);
+            quadplane.attitude_control->rate_bf_yaw_target(quadplane.desired_auto_yaw_rate_cds(true));
         }
         if (quadplane.tiltrotor.enabled() && !quadplane.tiltrotor.has_fw_motor()) {
             // tilt rotors without dedicated fw motors do not have forward throttle output in this stage
@@ -1637,15 +1636,10 @@ void SLT_Transition::update()
         quadplane.assisted_flight = true;
         quadplane.hold_stabilize(throttle_scaled);
 
-        // set desired yaw to current yaw in both desired angle and
-        // rate request while waiting for transition to
-        // complete. Navigation should be controlled by fixed wing
-        // control surfaces at this stage.
-        // We disable this for vectored yaw tilt rotors as they do need active
-        // yaw control throughout the transition
         if (!quadplane.tiltrotor.is_vectored()) {
+            // set desired yaw rate to a coordinated turn
             quadplane.attitude_control->reset_yaw_target_and_rate();
-            quadplane.attitude_control->rate_bf_yaw_target(0.0);
+            quadplane.attitude_control->rate_bf_yaw_target(quadplane.desired_auto_yaw_rate_cds(true));
         }
         break;
     }
@@ -1987,9 +1981,9 @@ void QuadPlane::motors_output(bool run_rate_controller)
 
         // run low level rate controllers that only require IMU data and set loop time
         const float last_loop_time_s = AP::scheduler().get_last_loop_time_s();
-        motors->set_dt(last_loop_time_s);
-        attitude_control->set_dt(last_loop_time_s);
-        pos_control->set_dt(last_loop_time_s);
+        motors->set_dt_s(last_loop_time_s);
+        attitude_control->set_dt_s(last_loop_time_s);
+        pos_control->set_dt_s(last_loop_time_s);
         attitude_control->rate_controller_run();
         // reset sysid and other temporary inputs
         attitude_control->rate_controller_target_reset();
@@ -2184,7 +2178,7 @@ void QuadPlane::run_xy_controller(float accel_limit)
     if (!pos_control->is_active_NE()) {
         pos_control->init_NE_controller();
     }
-    pos_control->set_lean_angle_max_cd(MIN(4500, MAX(accel_to_angle(accel_limit)*100, aparm.angle_max)));
+    pos_control->set_lean_angle_max_cd(MIN(4500, MAX(accel_mss_to_angle_deg(accel_limit)*100, aparm.angle_max)));
     if (q_fwd_throttle > 0.95f) {
         // prevent wind up of the velocity controller I term due to a saturated forward throttle
         pos_control->set_externally_limited_NE();
@@ -3110,7 +3104,7 @@ void QuadPlane::takeoff_controller(void)
     if (plane.arming.last_arm_method() == AP_Arming::Method::RUDDER &&
         (takeoff_last_run_ms == 0 ||
          now - takeoff_last_run_ms > 1000) &&
-        !plane.seen_neutral_rudder &&
+        !rc().seen_neutral_rudder() &&
         spool_state <= AP_Motors::DesiredSpoolState::GROUND_IDLE) {
         // start motor spinning if not spinning already so user sees it is armed
         set_desired_spool_state(AP_Motors::DesiredSpoolState::GROUND_IDLE);

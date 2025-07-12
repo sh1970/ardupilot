@@ -120,7 +120,7 @@ public:
         k_param_rc_13_old,
         k_param_rc_14_old,
         k_param_rally,
-        k_param_poshold_brake_rate,
+        k_param_poshold_brake_rate_degs,
         k_param_poshold_brake_angle_max,
         k_param_pilot_accel_z,
         k_param_serial0_baud,           // deprecated - remove
@@ -299,9 +299,9 @@ public:
         k_param_failsafe_throttle_value,
         k_param_throttle_trim,          // remove
         k_param_esc_calibrate,
-        k_param_radio_tuning,
-        k_param_radio_tuning_high_old,   // unused
-        k_param_radio_tuning_low_old,    // unused
+        k_param_rc_tuning_param,
+        k_param_rc_tuning_param_high_old,   // unused
+        k_param_rc_tuning_param_low_old,    // unused
         k_param_rc_speed = 192,
         k_param_failsafe_battery_enabled, // unused - moved to AP_BattMonitor
         k_param_throttle_mid,           // remove
@@ -413,7 +413,7 @@ public:
     AP_Int8         wp_yaw_behavior;            // controls how the autopilot controls yaw during missions
 
 #if MODE_POSHOLD_ENABLED
-    AP_Int16        poshold_brake_rate;         // PosHold flight mode's rotation rate during braking in deg/sec
+    AP_Int16        poshold_brake_rate_degs;    // PosHold flight mode's rotation rate during braking in deg/sec
     AP_Int16        poshold_brake_angle_max;    // PosHold flight mode's max lean angle during braking in centi-degrees
 #endif
 
@@ -446,7 +446,7 @@ public:
     //
     AP_Int32        log_bitmask;
     AP_Int8         esc_calibrate;
-    AP_Int8         radio_tuning;
+    AP_Int8         rc_tuning_param;
     AP_Int8         frame_type;
     AP_Int8         disarm_delay;
 
@@ -632,7 +632,7 @@ public:
     AC_CommandModel command_model_acro_y;
 #endif
 
-    AC_CommandModel command_model_pilot;
+    AC_CommandModel command_model_pilot_y;
 
 #if MODE_ACRO_ENABLED
     AP_Int8 acro_options;
