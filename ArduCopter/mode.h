@@ -208,6 +208,10 @@ public:
     virtual bool allows_weathervaning() const { return false; }
 #endif
 
+    // Return true if this mode is enabled, used by MAVLink available modes
+    // For example flow hold mode requires optical flow to be enabled
+    virtual bool enabled() const { return true; }
+
 protected:
 
     // helper functions
@@ -1017,6 +1021,9 @@ public:
     }
     bool allows_flip() const override { return true; }
 
+    // Return true if this mode is enabled, used by MAVLink available modes
+    bool enabled() const override;
+
     static const struct AP_Param::GroupInfo var_info[];
 
 protected:
@@ -1635,6 +1642,9 @@ public:
     bool is_landing() const override;
     bool use_pilot_yaw() const override;
 
+    // Return true if this mode is enabled, used by MAVLink available modes
+    bool enabled() const override;
+
     // Safe RTL states
     enum class SubMode : uint8_t {
         WAIT_FOR_PATH_CLEANUP,
@@ -1764,6 +1774,9 @@ public:
     bool allows_arming(AP_Arming::Method method) const override { return false; };
     bool is_autopilot() const override { return false; }
     bool logs_attitude() const override { return true; }
+
+    // Return true if this mode is enabled, used by MAVLink available modes
+    bool enabled() const override;
 
     void set_magnitude(float input) { waveform_magnitude.set(input); }
 
@@ -1904,6 +1917,9 @@ public:
     void output_to_motors() override;
     bool allows_entry_in_rc_failsafe() const override { return false; }
 
+    // Return true if this mode is enabled, used by MAVLink available modes
+    bool enabled() const override;
+
 protected:
     const char *name() const override { return "Turtle"; }
     const char *name4() const override { return "TRTL"; }
@@ -1969,6 +1985,9 @@ public:
     bool has_manual_throttle() const override { return false; }
     bool allows_arming(AP_Arming::Method method) const override { return false; }
     bool is_autopilot() const override { return true; }
+
+    // Return true if this mode is enabled, used by MAVLink available modes
+    bool enabled() const override;
 
 protected:
 
